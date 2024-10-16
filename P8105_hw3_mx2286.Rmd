@@ -1,0 +1,32 @@
+---
+title: "p8105_hw3_mx2286"
+author: "Mingye"
+date: "2024-10-15"
+output: github_document
+---
+
+# Problem 1
+
+Import and clean Dataset
+
+```{r}
+library(p8105.datasets)
+library(dplyr)
+library(janitor)
+library(lubridate)
+data("ny_noaa")
+noaa_clean <- ny_noaa %>%
+  janitor::clean_names() %>%
+#Change the units into a more reasonable ones
+  mutate(
+    prcp = as.numeric(prcp) / 10, 
+    tmax = as.numeric(tmax) / 10, 
+    tmin = as.numeric(tmin) / 10,
+    snwd = as.numeric(snwd) / 10
+  )%>%
+  
+#Create separate variables for year, month, and day
+  mutate(year = year(date), month = month(date), day = day(date))
+head(noaa_clean)
+print(noaa_clean)
+```
