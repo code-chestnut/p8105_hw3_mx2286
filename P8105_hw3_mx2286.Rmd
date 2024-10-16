@@ -5,7 +5,6 @@ date: "2024-10-15"
 output: github_document
 ---
 
-# Problem 1
 ```{r setup, include=FALSE}
 library(p8105.datasets)
 library(dplyr)
@@ -16,16 +15,16 @@ library(ggplot2)
 library(patchwork)
 ```
 
-Import and clean Dataset
-
 # Problem 1
 
 **load data**
+
 ```{r}
 data("ny_noaa")
 ```
 
 **Overall**
+
 ```{r}
 str(ny_noaa)
 colMeans(is.na(ny_noaa)) * 100
@@ -33,23 +32,14 @@ colMeans(is.na(ny_noaa)) * 100
 
 The dataset consists of 2,595,176 rows and 7 columns. Each row represents a daily weather observation, and the key variables include:
 
-`id`: A character variable identifying the weather station.
-`date`: A date variable representing the date of the observation.
-`prcp`: An integer variable indicating precipitation.
-`snow`: An integer variable for snowfall measurements.
-`snwd`: An integer variable for snow depth.
-`tmax`: A character variable representing the maximum temperature for the day.
-`tmin`: A character variable representing the minimum temperature.
+`id`: A character variable identifying the weather station. `date`: A date variable representing the date of the observation. `prcp`: An integer variable indicating precipitation. `snow`: An integer variable for snowfall measurements. `snwd`: An integer variable for snow depth. `tmax`: A character variable representing the maximum temperature for the day. `tmin`: A character variable representing the minimum temperature.
 
-Several key variables contain many NA values: 
+Several key variables contain many NA values:
 
-`prcp`: 5.62% missing value.
-`snow`: 14.69% missing value.
-`snwd`: 22.80% missing value.
-`tmax`: 43.71% missing value.
-`tmin`: 43.71% missing value.
+`prcp`: 5.62% missing value. `snow`: 14.69% missing value. `snwd`: 22.80% missing value. `tmax`: 43.71% missing value. `tmin`: 43.71% missing value.
 
 **data cleaning**
+
 ```{r}
 ny_noaa = ny_noaa |> 
   janitor::clean_names() |> 
@@ -67,9 +57,10 @@ ny_noaa |>
   head(n=5)
 ```
 
-The most commonly observed value for snowfall is 0. 
+The most commonly observed value for snowfall is 0.
 
 **plot 1**
+
 ```{r}
 ny_noaa |> 
   filter(month == '1' | month == '7') |> 
@@ -88,6 +79,7 @@ ny_noaa |>
 Temperatures in January show a gradual increase around 0°C over time. In July, temperatures consistently range between 25-30°C across all years, without any clear trend. In January, a few data points slightly above or below 0°C could be considered outliers.
 
 **plot 2**
+
 ```{r}
 tmax_tmin = ny_noaa |> 
   filter(!is.na(tmax) & !is.na(tmin)) |> 
@@ -104,9 +96,11 @@ snow_dist = ny_noaa |>
 # Combine the two plots using patchwork
 tmax_tmin + snow_dist
 ```
+
 # Problem 2
 
 **data cleaning**
+
 ```{r}
 accel = read.csv("nhanes_accel.csv") |> 
   janitor::clean_names()
@@ -126,7 +120,8 @@ covar = read.csv("nhanes_covar.csv", skip = 4) |>
 mims = inner_join(accel, covar, by = "seqn")
 ```
 
-**table**
+*table*
+
 ```{r}
 mims |> 
   group_by(sex, education) |> 
@@ -148,9 +143,11 @@ mims |>
   )
 
 ```
+
 The "Less than high school" group has nearly equal representation of men and women. In the "High school equivalent" category, men notably outnumber women. In the "More than high school" group, the gender balance is relatively even, with a slight majority of women. Additionally, this group exhibits the widest range in age.
 
-**Total Activity vs. Age by Sex and Education Level**
+*Total Activity vs. Age by Sex and Education Level*
+
 ```{r}
 mims |> 
   rowwise() |>
@@ -166,9 +163,11 @@ mims |>
     x = "Age", y = "Total Daily Activity"
   ) 
 ```
+
 Higher education levels are linked to more stable activity patterns throughout life, while lower education levels display greater variability and a sharper decline in activity, particularly among women. Gender differences are most evident in the lower education groups, where women tend to have higher activity levels in early adulthood but experience a more pronounced decline with age.
 
-**24-Hour Activity Time Courses by Education Level and Sex**
+*24-Hour Activity Time Courses by Education Level and Sex*
+
 ```{r}
 mims |> 
   pivot_longer(cols = starts_with("min"), 
@@ -189,6 +188,7 @@ mims |>
        y = "Mean Activity Level",
        color = "Sex")
 ```
+
 While there are minor differences in the timing and intensity of activity peaks, the overall daily activity pattern is consistent across all education levels. Activity levels are lower in the early morning and late night, with noticeable peaks in the late morning and early afternoon.
 
 Women, particularly in the higher education groups, exhibit higher activity levels in the morning. Men generally show slightly elevated activity in the afternoon and evening, especially in the "Less than high school" group.
@@ -198,3 +198,55 @@ Individuals with more education maintain higher and more consistent activity lev
 # Problem 3
 
 **Data Cleaning**
+
+```{r}
+bike20Jan <- read.csv("Jan 2020 Citi.csv") |> 
+  janitor::clean_names() |> 
+  mutate(year = 2020, month = "Jan")
+bike20July <- read.csv("July 2020 Citi.csv") |> 
+  janitor::clean_names() |> 
+  mutate(year = 2020, month = "July")
+bike24Jan <- read.csv("Jan 2024 Citi.csv") |> 
+  janitor::clean_names() |> 
+  mutate(year = 2024, month = "Jan")
+bike24July <- read.csv("July 2024 Citi.csv") |> 
+  janitor::clean_names() |> 
+  mutate(year = 2024, month = "July")
+
+citibike = bind_rows(bike20Jan, bike20July, bike24Jan, bike24July) |> 
+  mutate(
+    weekdays = factor(weekdays, 
+                      levels =c("Monday", "Tuesday", "Wednesday", "Thursday", 
+                                "Friday", "Saturday", "Sunday")),
+    month = factor(month),
+    year = factor(year),
+   rideable_type = factor(rideable_type)
+  )
+
+str(citibike)
+```
+
+The final dataset consists of 99,485 observations and 9 variables, including `ride_id`, `rideable_type`, `weekdays`, `duration`, `start_station_name`, `end_station_name`, `member_casual`, `year`, `month`.
+
+*table 1*
+
+```{r}
+citibike |> 
+  group_by(year, month, member_casual) |>
+  summarize(number = n(),.groups = "drop") |> 
+  pivot_wider(
+    names_from = member_casual,
+    values_from = number) |> 
+  knitr::kable()
+```
+From 2020 to 2024, there has been a notable increase in total rides, with a significant surge observed in July 2024. This trend likely reflects growing popularity, possibly driven by expanded infrastructure, improved accessibility, or rising public interest in bike-sharing services.
+*table 2*
+```{r}
+citibike |> 
+  filter(year == 2024, month == "July") |>  
+  group_by(start_station_name) |>  
+  summarize(total_ride = n()) |>  
+  arrange(desc(total_ride)) |>  
+  slice_max(total_ride, n = 5) |>
+  knitr::kable(caption = "Top 5 Most Popular Starting Stations for July 2024")
+```
