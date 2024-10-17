@@ -6,6 +6,7 @@ output: github_document
 ---
 
 ```{r setup, include=FALSE}
+#load library 
 library(p8105.datasets)
 library(dplyr)
 library(janitor)
@@ -85,31 +86,34 @@ ny_noaa %>%
 
 Temperatures in January show a gradual increase around 0°C over time. In July, temperatures consistently range between 25-30°C across all years, without any clear trend. In January, a few data points slightly above or below 0°C could be considered outliers.
 
-**plot 2**
+*plot 2*
 
 ```{r}
-hex = 
-  ny_noaa %>% 
-  ggplot(aes(x = tmin, y = tmax)) + 
-  geom_hex()
+tmax_tmin = ny_noaa |> 
+  filter(!is.na(tmax) & !is.na(tmin)) |> 
+  ggplot(aes(x=tmin, y=tmax)) +
+  geom_hex(bins = 30) +
+  labs(title = "Hexbin Plot of Tmax vs Tmin", x = "Tmin (°C)", y = "Tmax (°C)")
 
-ridge = 
-  ny_noaa %>% 
-  filter(snow < 100, snow > 0) %>%
-  ggplot(aes(x = snow, y = as.factor(year))) + 
-  geom_density_ridges()
+snow_dist = ny_noaa |> 
+  filter(snow > 0 & snow < 100) |> 
+  ggplot(aes(x=year, y=snow)) +
+  geom_violin() +
+  labs(title = "Snowfall Distribution (0 < Snowfall < 100) by Year", x = "Snowfall (mm)", y = "Year")
 
-hex + ridge
+tmax_tmin + snow_dist
 ```
 
 # Problem 2
 
-**data cleaning**
+*data cleaning*
 
 ```{r}
+# Read the NHANES accelerometer data, and clean column names for easier reference
 accel = read.csv("nhanes_accel.csv") |> 
   janitor::clean_names()
 
+# Read the NHANES covariate data, skipping the first 4 rows, and clean column names
 covar = read.csv("nhanes_covar.csv", skip = 4) |> 
   janitor::clean_names() |> 
   filter(age >= 21, !is.na(sex), !is.na(age), !is.na(bmi), !is.na(education)) |> 
@@ -122,12 +126,15 @@ covar = read.csv("nhanes_covar.csv", skip = 4) |>
                                   "More than high school"))
   )
 
+# Merge the accelerometer and covariate datasets by 'seqn' (NHANES unique identifier)
+
 mims = inner_join(accel, covar, by = "seqn")
 ```
 
 *table*
 
 ```{r}
+# Merging and Summarizing
 mims |> 
   group_by(sex, education) |> 
  summarize(count = n(), .groups = "drop") |> 
@@ -137,7 +144,7 @@ mims |>
     values_fill = list(count = 0)  # fill missing combinations with 0
   ) |> 
   knitr::kable()
-
+# Plotting Age Distributions by Sex and Education
 mims |>
   group_by(sex, education) |> 
   ggplot(aes(x = sex, y = age, color = education)) +
@@ -154,6 +161,7 @@ The "Less than high school" group has nearly equal representation of men and wom
 *Total Activity vs. Age by Sex and Education Level*
 
 ```{r}
+# Summing Activity Across Time Columns and Plotting
 mims |> 
   rowwise() |>
   mutate(activity = sum(c_across(starts_with("min")), na.rm = TRUE)) |> 
@@ -162,6 +170,7 @@ mims |>
   ggplot(aes(x = age, y = activity, color = sex)) +
   geom_point(alpha = 0.6, size = 2) +  
   geom_smooth(method = "loess") + 
+  # Add a smoothed line (locally weighted regression) to show trends within each group
   facet_wrap(~education) +
   labs(
     title = "Total Activity vs. Age by Sex and Education Level",
@@ -174,20 +183,22 @@ Higher education levels are linked to more stable activity patterns throughout l
 *24-Hour Activity Time Courses by Education Level and Sex*
 
 ```{r}
+# Reshaping the Data and Plotting 24-Hour Activity Patterns
 mims |> 
   pivot_longer(cols = starts_with("min"), 
                names_to = "minute", 
                names_prefix = "min", 
                values_to = "activity") |> 
-  mutate(minute = as.numeric(minute))  |> 
+  mutate(minute = as.numeric(minute))  |> # Convert 'minute' from character to numeric 
   group_by(minute, sex, education) |> 
-  summarize(mean_activity = mean(activity, na.rm = TRUE), .groups = "drop") |> 
+  summarize(mean_activity = mean(activity, na.rm = TRUE), .groups = "drop") |> # Calculate the mean activity, ignoring NAs
   ggplot(aes(x = minute, y = mean_activity, color = sex)) +
   geom_point(alpha = 0.2, size = 1.5) +  
   geom_smooth(size = 1.2) +
   facet_wrap(~education, nrow = 3) +
   scale_x_continuous(breaks = seq(0, 1440, by = 120), 
-                     labels = function(x) sprintf("%02d:00", x / 60)) +
+                     labels = function(x) sprintf("%02d:00", x / 60)) + 
+  #show time in HH:MM format
   labs(title = "24-Hour Activity Time Courses by Education Level and Sex",
        x = "Time of Day (Hours)",  # Clarified label
        y = "Mean Activity Level",
@@ -196,15 +207,16 @@ mims |>
 
 While there are minor differences in the timing and intensity of activity peaks, the overall daily activity pattern is consistent across all education levels. Activity levels are lower in the early morning and late night, with noticeable peaks in the late morning and early afternoon.
 
-Women, particularly in the higher education groups, exhibit higher activity levels in the morning. Men generally show slightly elevated activity in the afternoon and evening, especially in the "Less than high school" group.
+Females, particularly in the higher education groups, exhibit higher activity levels in the morning. Men generally show slightly elevated activity in the afternoon and evening, especially in the "Less than high school" group.
 
-Individuals with more education maintain higher and more consistent activity levels throughout the day, while those with less education tend to have lower overall activity and experience a decline in activity earlier in the day.
+Individuals with more education maintain higher and more consistent activity levels throughout the day, perticularily for females, while those with less education tend to have lower overall activity and experience a decline in activity earlier in the day.
 
 # Problem 3
 
 **Data Cleaning**
 
 ```{r}
+# Loading and cleaning data for different months and years
 bike20Jan <- read.csv("Jan 2020 Citi.csv") |> 
   janitor::clean_names() |> 
   mutate(year = 2020, month = "Jan")
@@ -218,6 +230,7 @@ bike24July <- read.csv("July 2024 Citi.csv") |>
   janitor::clean_names() |> 
   mutate(year = 2024, month = "July")
 
+# Combining the datasets and adding additional columns
 citibike = bind_rows(bike20Jan, bike20July, bike24Jan, bike24July) |> 
   mutate(
     weekdays = factor(weekdays, 
@@ -227,7 +240,7 @@ citibike = bind_rows(bike20Jan, bike20July, bike24Jan, bike24July) |>
     year = factor(year),
    rideable_type = factor(rideable_type)
   )
-
+# Checking the structure of the final dataset
 str(citibike)
 ```
 
@@ -236,18 +249,20 @@ The final dataset consists of 99,485 observations and 9 variables, including `ri
 *table 1*
 
 ```{r}
+#Summary of Total Rides by Year, Month, and Rider Type
 citibike |> 
   group_by(year, month, member_casual) |>
   summarize(number = n(),.groups = "drop") |> 
   pivot_wider(
     names_from = member_casual,
     values_from = number) |> 
-  knitr::kable()
+  knitr::kable() # Display the table in a clean format using knitr::kable()
 ```
 
 From 2020 to 2024, there has been a notable increase in total rides, with a significant surge observed in July 2024. This trend likely reflects growing popularity, possibly driven by expanded infrastructure, improved accessibility, or rising public interest in bike-sharing services. *table 2*
 
 ```{r}
+#Most Popular Starting Stations for July 2024
 citibike |> 
   filter(year == 2024, month == "July") |>  
   group_by(start_station_name) |>  
@@ -260,13 +275,14 @@ citibike |>
 *Median Ride Duration by Day of Week, Month, and Year*
 
 ```{r}
+# Group data by year, month, and day of the week
 citibike |> 
   group_by(year, month, weekdays) |>  
   summarize(median_duration = median(duration)) |> 
   ggplot(aes(x = weekdays, y = median_duration, color = factor(year))) +
   geom_point(aes(group = year)) +
   geom_line(aes(group = year)) +  
-  facet_wrap(~ month + year, ncol = 2, nrow = 2) +  
+  facet_wrap(~ month + year, ncol = 2, nrow = 2) +  # Create facets by month and year (2x2 layout)
   labs(title = "Median Ride Duration by Day of Week, Month, and Year",
        x = "Day of the Week", 
        y = "Median Ride Duration (minutes)", 
@@ -281,14 +297,14 @@ The increase in weekend ride durations during July suggests that many riders are
 
 ```{r}
 citibike |> 
-  filter(year == 2024) |> 
+  filter(year == 2024) |> # Filter for rides in 2024
   ggplot(aes(x = month, y = duration, color = rideable_type)) +
-  geom_boxplot(outlier.alpha = 0.7) +  
+  geom_boxplot(outlier.alpha = 0.7) +  # Add boxplots with semi-transparent outliers
   facet_wrap(~ member_casual) +
   labs(title = "Impact of Month, Membership Status, and Bike Type 2024",
        x = "Month",
        y = "Ride Duration (minutes)",
-       color = "Bike Type") +
+       color = "Bike Type") +# Legend for bike type
   theme_minimal()  # Optional: Cleaner theme for readability
 
 ```
