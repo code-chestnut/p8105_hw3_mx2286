@@ -239,8 +239,9 @@ citibike |>
     values_from = number) |> 
   knitr::kable()
 ```
-From 2020 to 2024, there has been a notable increase in total rides, with a significant surge observed in July 2024. This trend likely reflects growing popularity, possibly driven by expanded infrastructure, improved accessibility, or rising public interest in bike-sharing services.
-*table 2*
+
+From 2020 to 2024, there has been a notable increase in total rides, with a significant surge observed in July 2024. This trend likely reflects growing popularity, possibly driven by expanded infrastructure, improved accessibility, or rising public interest in bike-sharing services. *table 2*
+
 ```{r}
 citibike |> 
   filter(year == 2024, month == "July") |>  
@@ -250,3 +251,43 @@ citibike |>
   slice_max(total_ride, n = 5) |>
   knitr::kable(caption = "Top 5 Most Popular Starting Stations for July 2024")
 ```
+
+*Median Ride Duration by Day of Week, Month, and Year*
+
+```{r}
+citibike |> 
+  group_by(year, month, weekdays) |>  
+  summarize(median_duration = median(duration)) |> 
+  ggplot(aes(x = weekdays, y = median_duration, color = factor(year))) +
+  geom_point(aes(group = year)) +
+  geom_line(aes(group = year)) +  
+  facet_wrap(~ month + year, ncol = 2, nrow = 2) +  
+  labs(title = "Median Ride Duration by Day of Week, Month, and Year",
+       x = "Day of the Week", 
+       y = "Median Ride Duration (minutes)", 
+       color = "Year")
+```
+
+Ride durations in the colder month of January are noticeably shorter compared to those in July, likely due to harsher weather conditions, which make biking less comfortable or practical. In contrast, the warmer month of July sees significantly longer rides, especially on weekends. This trend is evident in both 2020 and 2024.
+
+The increase in weekend ride durations during July suggests that many riders are taking advantage of the favorable summer weather for recreational activities or leisurely outings. Weekends may also provide more free time for longer trips, contributing to the spike in usage. Additionally, the data indicates that seasonal factors, such as holidays or vacations in July, could further influence the increased duration of rides during this period.
+
+*Impact of Month, Membership Status, and Bike Type 2024*
+
+```{r}
+citibike |> 
+  filter(year == 2024) |> 
+  ggplot(aes(x = month, y = duration, color = rideable_type)) +
+  geom_boxplot(outlier.alpha = 0.7) +  
+  facet_wrap(~ member_casual) +
+  labs(title = "Impact of Month, Membership Status, and Bike Type 2024",
+       x = "Month",
+       y = "Ride Duration (minutes)",
+       color = "Bike Type") +
+  theme_minimal()  # Optional: Cleaner theme for readability
+
+```
+
+Electric bikes are frequently chosen for longer rides, with casual riders showing a clear preference for them during extended trips. This may be due to the additional ease and speed that electric bikes provide, making them an attractive option for non-members who may be riding for leisure or covering longer distances.
+
+In contrast, members tend to exhibit more consistent ride durations regardless of bike type. This suggests that members, who may use the service more regularly for commuting or errands, prioritize convenience and efficiency over ride length, leading to more uniform usage patterns across both electric and traditional bikes.
