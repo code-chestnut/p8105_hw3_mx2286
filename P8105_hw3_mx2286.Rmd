@@ -13,6 +13,24 @@ library(lubridate)
 library(tidyverse)
 library(ggplot2)
 library(patchwork)
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
 ```
 
 # Problem 1
@@ -30,31 +48,25 @@ str(ny_noaa)
 colMeans(is.na(ny_noaa)) * 100
 ```
 
-The dataset consists of 2,595,176 rows and 7 columns. Each row represents a daily weather observation, and the key variables include:
-
-`id`: A character variable identifying the weather station. `date`: A date variable representing the date of the observation. `prcp`: An integer variable indicating precipitation. `snow`: An integer variable for snowfall measurements. `snwd`: An integer variable for snow depth. `tmax`: A character variable representing the maximum temperature for the day. `tmin`: A character variable representing the minimum temperature.
+This dataset contains `r nrow(ny_noaa)` rows and `r ncol(ny_noaa)` columns. Variables include weather station id, date of observation, (tenths of mm), snowfall (mm), snow depth (mm), and min and max temperature (tenths of degrees C).
 
 Several key variables contain many NA values:
 
-`prcp`: 5.62% missing value. `snow`: 14.69% missing value. `snwd`: 22.80% missing value. `tmax`: 43.71% missing value. `tmin`: 43.71% missing value.
+`prcp`: 5.61958% missing value. `snow`: 14.68960% missing value. `snwd`: 22.80331% missing value. `tmax`: 43.71025% missing value. `tmin`: 43.71264% missing value.
 
 **data cleaning**
 
 ```{r}
-ny_noaa = ny_noaa |> 
-  janitor::clean_names() |> 
-  mutate(year = as.numeric(format(date, "%Y")),
-         month = as.numeric(format(date, "%m")),
-         day = as.numeric(format(date, "%d")),
-         tmax = as.integer(tmax) / 10,
-         tmin = as.integer(tmin) / 10,
-         prcp = prcp / 10)
+ny_noaa %>% 
+  count(snow) %>%
+  arrange(desc(n))
 
-ny_noaa |> 
-  group_by(snow) |> 
-  summarise(count = n()) |> 
-  arrange(desc(count)) |> 
-  head(n=5)
+ny_noaa = 
+  ny_noaa %>% 
+  separate(date, into = c("year", "month", "day"), convert = TRUE) %>% 
+  mutate(
+    tmax = as.numeric(tmax),
+    tmin = as.numeric(tmin))
 ```
 
 The most commonly observed value for snowfall is 0.
@@ -62,18 +74,13 @@ The most commonly observed value for snowfall is 0.
 **plot 1**
 
 ```{r}
-ny_noaa |> 
-  filter(month == '1' | month == '7') |> 
-  group_by(year, month) |> 
-  summarise(avg_tmax = mean(tmax, na.rm = TRUE), .groups = "drop") |> 
-  ungroup() |> 
-  ggplot(aes(x = year, y = avg_tmax)) +
-  geom_point() +
-  facet_wrap(~month) +
-  labs(
-    title = "Average Max Temp in January and July Across Years",
-    x = "Year", y = "Average Max °C"
-  ) 
+ny_noaa %>% 
+  group_by(id, year, month) %>% 
+  filter(month %in% c(1, 7)) %>% 
+  summarize(mean_tmax = mean(tmax, na.rm = TRUE, color = id)) %>% 
+  ggplot(aes(x = year, y = mean_tmax, group = id)) + geom_point() + geom_path() +
+  facet_grid(~month) +
+  labs(title = "Mean monthly temperature for each station across years for January and July")
 ```
 
 Temperatures in January show a gradual increase around 0°C over time. In July, temperatures consistently range between 25-30°C across all years, without any clear trend. In January, a few data points slightly above or below 0°C could be considered outliers.
@@ -81,20 +88,18 @@ Temperatures in January show a gradual increase around 0°C over time. In July, 
 **plot 2**
 
 ```{r}
-tmax_tmin = ny_noaa |> 
-  filter(!is.na(tmax) & !is.na(tmin)) |> 
-  ggplot(aes(x=tmin, y=tmax)) +
-  geom_hex(bins = 30) +
-  labs(title = "Hexbin Plot of Tmax vs Tmin", x = "Tmin (°C)", y = "Tmax (°C)")
+hex = 
+  ny_noaa %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_hex()
 
-snow_dist = ny_noaa |> 
-  filter(snow > 0 & snow < 100) |> 
-  ggplot(aes(x=year, y=snow)) +
-  geom_violin() +
-  labs(title = "Snowfall Distribution (0 < Snowfall < 100) by Year", x = "Year", y = "Snowfall (mm)")
+ridge = 
+  ny_noaa %>% 
+  filter(snow < 100, snow > 0) %>%
+  ggplot(aes(x = snow, y = as.factor(year))) + 
+  geom_density_ridges()
 
-# Combine the two plots using patchwork
-tmax_tmin + snow_dist
+hex + ridge
 ```
 
 # Problem 2
